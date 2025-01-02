@@ -19,10 +19,14 @@ namespace TasinmazProject.Entities.Concrete
         public string Adres {  get; set; }
  
         public string Koordinat { get; set; }
+      
+
         // mahalleId
         public int MahalleId{ get; set; }
         [ForeignKey("MahalleId")]
 
         public Mahalle Mahalle { get; set; }
+
+       
     }
 }

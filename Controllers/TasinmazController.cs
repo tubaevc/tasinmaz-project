@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using TasinmazProject.Business.Abstract;
 using TasinmazProject.Business.Concrete;
@@ -45,6 +47,9 @@ namespace TasinmazProject.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateTasinmaz([FromBody] Tasinmaz tasinmaz)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState); // Model hatalarını dön
+
             if (tasinmaz == null)
                 return BadRequest("Taşınmaz bilgileri boş olamaz.");
 
@@ -54,6 +59,7 @@ namespace TasinmazProject.Controllers
 
             return CreatedAtAction(nameof(GetTasinmazByMahalleId), new { mahalleId = tasinmaz.MahalleId }, result);
         }
+
 
         // PUT: api/Tasinmaz/5
         [HttpPut("{id}")]
@@ -90,5 +96,28 @@ namespace TasinmazProject.Controllers
 
             return NoContent();
         }
+
+        //multi delete için list alsın
+        [HttpPost("multi-delete")]
+        public async Task<IActionResult> DeleteMultipleTasinmaz([FromBody] List<int> ids)
+        {
+            if (ids == null || ids.Count == 0)
+            {
+                return BadRequest("Silinecek ID listesi boş.");
+            }
+
+            var result = await _tasinmazService.DeleteMultipleTasinmazAsync(ids);
+
+            if (!result)
+            {
+                return BadRequest("Bazı kayıtlar silinirken bir hata oluştu.");
+            }
+
+            return Ok("Seçili taşınmazlar başarıyla silindi.");
+        }
+
+
+
     }
 }
+

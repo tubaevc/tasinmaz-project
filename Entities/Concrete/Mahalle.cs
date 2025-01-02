@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TasinmazProject.Entities.Concrete
@@ -14,7 +15,6 @@ namespace TasinmazProject.Entities.Concrete
         public int IlceId { get; set; }
         [ForeignKey("IlceId")]
         public Ilce Ilce { get; set; }
-
 
     }
 }

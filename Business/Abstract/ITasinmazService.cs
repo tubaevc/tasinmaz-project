@@ -15,5 +15,8 @@ namespace TasinmazProject.Business.Abstract
 
         Task<List<Tasinmaz>> GetAllTasinmazAsync(); //tum tasinmaz
 
+        Task<bool> DeleteMultipleTasinmazAsync(List<int> ids);
+
+
     }
 }

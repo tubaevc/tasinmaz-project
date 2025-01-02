@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,29 +11,38 @@ namespace TasinmazProject.Business.Concrete
 {
     public class TasinmazService:ITasinmazService
     {
-        
-            private readonly ApplicationDbContext _context;
 
-            public TasinmazService(ApplicationDbContext context)
-            {
-                _context = context;
-            }
+        private readonly ApplicationDbContext _context;
 
-            public async Task<List<Tasinmaz>> GetTasinmazByMahalleIdAsync(int mahalleId) 
-            {
-                return await _context.Tasinmazlar
-                .Include(tasinmaz =>tasinmaz.Mahalle)
-              .ThenInclude(mahalle =>mahalle.Ilce)
-              .ThenInclude(ilce=>ilce.Il)
-                   .Where(tasinmaz=>tasinmaz.MahalleId==mahalleId)
-                   .ToListAsync();
-            }
+        public TasinmazService(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<List<Tasinmaz>> GetTasinmazByMahalleIdAsync(int mahalleId)
+        {
+            return await _context.Tasinmazlar
+            .Include(tasinmaz => tasinmaz.Mahalle)
+          .ThenInclude(mahalle => mahalle.Ilce)
+          .ThenInclude(ilce => ilce.Il)
+               .Where(tasinmaz => tasinmaz.MahalleId == mahalleId)
+               .ToListAsync();
+        }
         public async Task<Tasinmaz> AddTasinmazAsync(Tasinmaz tasinmaz)
         {
-            await _context.Tasinmazlar.AddAsync(tasinmaz);
-            await _context.SaveChangesAsync();
-            return tasinmaz;
+            try
+            {
+                await _context.Tasinmazlar.AddAsync(tasinmaz);
+                await _context.SaveChangesAsync();
+                return tasinmaz;
+            }
+            catch (Exception ex)
+            {
+                // Inner exception detaylarını loglayın veya döndürün
+                throw new Exception($"Veritabanına eklerken hata oluştu: {ex.Message}. Inner Exception: {ex.InnerException?.Message}");
+            }
         }
+
 
         public async Task<bool> UpdateTasinmazAsync(Tasinmaz tasinmaz)
         {
@@ -61,6 +71,26 @@ namespace TasinmazProject.Business.Concrete
               .ThenInclude(ilce => ilce.Il)
                 .ToListAsync();
         }
+
+        public async Task<bool> DeleteMultipleTasinmazAsync(List<int> ids)
+        {
+            var tasinmazlar = await _context.Tasinmazlar
+                .Where(t => ids.Contains(t.Id))
+                .ToListAsync();
+
+            if (tasinmazlar.Count == 0)
+            {
+                return false; // Silinecek kayıt bulunamadı
+            }
+
+            _context.Tasinmazlar.RemoveRange(tasinmazlar);
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+
+
+
     }
-    }
+}
 

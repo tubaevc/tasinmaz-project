@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TasinmazProject.Entities.Concrete
@@ -13,5 +14,7 @@ namespace TasinmazProject.Entities.Concrete
         public int IlId { get; set; }
         [ForeignKey("IlId")]
         public Il Il { get; set; } // Il turunde 
+
+      //  public ICollection<Mahalle> Mahalleler { get; set; }
     }
 }

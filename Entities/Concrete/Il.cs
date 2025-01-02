@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace TasinmazProject.Entities.Concrete
 {
@@ -7,5 +8,7 @@ namespace TasinmazProject.Entities.Concrete
         [Key]
         public int Id { get; set; }
         public string IlAdi { get; set;}
+
+     //   public ICollection<Ilce> Ilceler { get; set; }
     }
 }
