@@ -18,7 +18,14 @@ namespace TasinmazProject.Business.Concrete
         {
             _context = context;
         }
-
+        public async Task<Tasinmaz> GetTasinmazByIdAsync(int id)
+        {
+            return await _context.Tasinmazlar
+                   .Include(t => t.Mahalle)
+                   .ThenInclude(m => m.Ilce) 
+                   .ThenInclude(i => i.Il) 
+                   .FirstOrDefaultAsync(i => i.Id == id);
+        }
         public async Task<List<Tasinmaz>> GetTasinmazByMahalleIdAsync(int mahalleId)
         {
             return await _context.Tasinmazlar
@@ -34,11 +41,17 @@ namespace TasinmazProject.Business.Concrete
             {
                 await _context.Tasinmazlar.AddAsync(tasinmaz);
                 await _context.SaveChangesAsync();
-                return tasinmaz;
+
+                var addedTasinmaz = await _context.Tasinmazlar
+                    .Include(t => t.Mahalle)
+                        .ThenInclude(m => m.Ilce)
+                            .ThenInclude(i => i.Il)
+                    .FirstOrDefaultAsync(t => t.Id == tasinmaz.Id);
+
+                return addedTasinmaz;
             }
             catch (Exception ex)
             {
-                // Inner exception detaylarını loglayın veya döndürün
                 throw new Exception($"Veritabanına eklerken hata oluştu: {ex.Message}. Inner Exception: {ex.InnerException?.Message}");
             }
         }
@@ -80,7 +93,7 @@ namespace TasinmazProject.Business.Concrete
 
             if (tasinmazlar.Count == 0)
             {
-                return false; // Silinecek kayıt bulunamadı
+                return false; 
             }
 
             _context.Tasinmazlar.RemoveRange(tasinmazlar);

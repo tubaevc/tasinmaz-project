@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -58,22 +59,24 @@ namespace TasinmazProject.Controllers
                 return BadRequest("Taşınmaz eklenirken bir hata oluştu.");
 
             return CreatedAtAction(nameof(GetTasinmazByMahalleId), new { mahalleId = tasinmaz.MahalleId }, result);
+
+
         }
 
 
         // PUT: api/Tasinmaz/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTasinmaz(int id, [FromBody] Tasinmaz tasinmaz)
-        {
-            if (id != tasinmaz.Id)
-                return BadRequest("ID'ler eşleşmiyor.");
+        //[HttpPut("{id}")]
+        //public async Task<IActionResult> UpdateTasinmaz(int id, [FromBody] Tasinmaz tasinmaz)
+        //{
+        //    if (id != tasinmaz.Id)
+        //        return BadRequest("ID'ler eşleşmiyor.");
 
-            var result = await _tasinmazService.UpdateTasinmazAsync(tasinmaz);
-            if (!result)
-                return NotFound($"ID: {id} olan taşınmaz bulunamadı.");
+        //    var result = await _tasinmazService.UpdateTasinmazAsync(tasinmaz);
+        //    if (!result)
+        //        return NotFound($"ID: {id} olan taşınmaz bulunamadı.");
 
-            return NoContent(); // 204
-        }
+        //    return NoContent(); // 204
+        //}
 
         //DELETE
         [HttpDelete("{id}")]
@@ -116,7 +119,18 @@ namespace TasinmazProject.Controllers
             return Ok("Seçili taşınmazlar başarıyla silindi.");
         }
 
-
+        //update icin id ile get
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetTasinmazById(int id)
+        {
+            var tasinmaz = await _tasinmazService.GetTasinmazByIdAsync(id);
+            if (tasinmaz == null)
+            {
+                return NotFound("Taşınmaz bulunamadı.");
+            }
+            return Ok(tasinmaz);
+        }
+      
 
     }
 }

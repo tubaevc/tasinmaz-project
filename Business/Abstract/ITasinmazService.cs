@@ -17,6 +17,7 @@ namespace TasinmazProject.Business.Abstract
 
         Task<bool> DeleteMultipleTasinmazAsync(List<int> ids);
 
+        Task<Tasinmaz> GetTasinmazByIdAsync(int id); // ID ye gore tasinmaz for update
 
     }
 }
