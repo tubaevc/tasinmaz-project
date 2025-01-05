@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -64,19 +65,21 @@ namespace TasinmazProject.Controllers
         }
 
 
-        // PUT: api/Tasinmaz/5
-        //[HttpPut("{id}")]
-        //public async Task<IActionResult> UpdateTasinmaz(int id, [FromBody] Tasinmaz tasinmaz)
-        //{
-        //    if (id != tasinmaz.Id)
-        //        return BadRequest("ID'ler eşleşmiyor.");
+        //PUT: api/Tasinmaz/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateTasinmaz(int id, [FromBody] Tasinmaz tasinmaz)
+        {
+           
+            if (id != tasinmaz.Id)
+                return BadRequest("ID'ler eşleşmiyor.");
 
-        //    var result = await _tasinmazService.UpdateTasinmazAsync(tasinmaz);
-        //    if (!result)
-        //        return NotFound($"ID: {id} olan taşınmaz bulunamadı.");
+            var result = await _tasinmazService.UpdateTasinmazAsync(tasinmaz);
+            if (!result)
+                return NotFound($"ID: {id} olan taşınmaz bulunamadı.");
 
-        //    return NoContent(); // 204
-        //}
+            return NoContent(); // 204
+        }
+
 
         //DELETE
         [HttpDelete("{id}")]
