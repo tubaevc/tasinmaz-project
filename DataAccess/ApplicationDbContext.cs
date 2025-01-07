@@ -14,6 +14,7 @@ namespace TasinmazProject.DataAccess
         public DbSet<Mahalle> Mahalleler { get; set; }
         public DbSet<Tasinmaz> Tasinmazlar { get; set; }
 
+        public DbSet<User> Users { get; set; }
 
     }
 }
