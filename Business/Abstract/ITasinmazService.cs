@@ -9,7 +9,7 @@ namespace TasinmazProject.Business.Abstract
         Task<List<Tasinmaz>> GetTasinmazByMahalleIdAsync(int mahalleId); // ID ye gore
 
         Task<Tasinmaz>AddTasinmazAsync(Tasinmaz tasinmaz);
-        Task<bool> UpdateTasinmazAsync(Tasinmaz tasinmaz);
+        Task<Tasinmaz> UpdateTasinmazAsync(Tasinmaz tasinmaz);
 
         Task<bool> DeleteTasinmazAsync(int id);
 
@@ -18,6 +18,8 @@ namespace TasinmazProject.Business.Abstract
         Task<bool> DeleteMultipleTasinmazAsync(List<int> ids);
 
         Task<Tasinmaz> GetTasinmazByIdAsync(int id); // ID ye gore tasinmaz for update
+
+        Task<List<Tasinmaz>> GetTasinmazByUserIdAsync(int userId);
 
     }
 }

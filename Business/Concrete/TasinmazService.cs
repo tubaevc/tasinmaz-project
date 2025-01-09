@@ -57,15 +57,55 @@ namespace TasinmazProject.Business.Concrete
         }
 
 
-        public async Task<bool> UpdateTasinmazAsync(Tasinmaz tasinmaz)
+        public async Task<Tasinmaz> UpdateTasinmazAsync(Tasinmaz tasinmaz)
         {
-            var existingTasinmaz = await _context.Tasinmazlar.FindAsync(tasinmaz.Id);
-            if (existingTasinmaz == null)
-                return false;
+            try
+            {
+                var existingTasinmaz = await _context.Tasinmazlar.FindAsync(tasinmaz.Id);
 
-            _context.Entry(existingTasinmaz).CurrentValues.SetValues(tasinmaz);
-            await _context.SaveChangesAsync();
-            return true;
+                if (existingTasinmaz == null)
+                    return null;
+
+                await _context.Entry(existingTasinmaz)
+                    .Reference(t => t.Mahalle)
+                    .LoadAsync();
+
+                if (existingTasinmaz.Mahalle != null)
+                {
+                    await _context.Entry(existingTasinmaz.Mahalle)
+                        .Reference(m => m.Ilce)
+                        .LoadAsync();
+
+                    if (existingTasinmaz.Mahalle.Ilce != null)
+                    {
+                        await _context.Entry(existingTasinmaz.Mahalle.Ilce)
+                            .Reference(i => i.Il)
+                            .LoadAsync();
+                    }
+                }
+
+                existingTasinmaz.Ada = tasinmaz.Ada;
+                existingTasinmaz.Parsel = tasinmaz.Parsel;
+                existingTasinmaz.Nitelik = tasinmaz.Nitelik;
+                existingTasinmaz.Adres = tasinmaz.Adres;
+                existingTasinmaz.MahalleId = tasinmaz.MahalleId;
+
+                await _context.SaveChangesAsync();
+
+                var updatedTasinmaz = await _context.Tasinmazlar
+                    .Include(t => t.Mahalle)
+                        .ThenInclude(m => m.Ilce)
+                            .ThenInclude(i => i.Il)
+                    .FirstOrDefaultAsync(t => t.Id == tasinmaz.Id);
+
+                return updatedTasinmaz;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"UpdateTasinmazAsync error: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                throw;
+            }
         }
         public async Task<bool> DeleteTasinmazAsync(int id)
         {
@@ -102,7 +142,15 @@ namespace TasinmazProject.Business.Concrete
             return true;
         }
 
-
+        public async Task<List<Tasinmaz>> GetTasinmazByUserIdAsync(int userId)
+        {
+            return await _context.Tasinmazlar
+                .Where(t => t.userId == userId)
+                .Include(t => t.Mahalle)
+                .ThenInclude(m => m.Ilce)
+                .ThenInclude(i => i.Il)
+                .ToListAsync();
+        }
 
     }
 }

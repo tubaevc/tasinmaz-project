@@ -29,7 +29,7 @@ namespace TasinmazProject.Controllers
             _authRepository = authRepository;
             _configuration = configuration;
         }
-        [HttpPost ("register")]
+        [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserForRegister userForRegister)
         {
             if (await _authRepository.UserExists(userForRegister.UserEmail))
@@ -39,17 +39,17 @@ namespace TasinmazProject.Controllers
             }
             if (!ModelState.IsValid)
             {
-            return BadRequest(ModelState);
+                return BadRequest(ModelState);
             }
             var userToCreate = new User
             {
                 userEmail = userForRegister.UserEmail,
-                role="admin"
+                role = "admin"
             };
             var createdUser = await _authRepository.Register(userToCreate, userForRegister.Password);
             return StatusCode(201);
         }
-     
+
 
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] UserForLogin userForLogin)
@@ -61,7 +61,7 @@ namespace TasinmazProject.Controllers
                 return Unauthorized("Kullanıcı bulunamadı!");
             }
 
-            user.role = user.role ?? "Admin"; // Eğer role null ise varsayılan değer atanır
+            user.role = user.role ?? "Admin"; 
 
             var tokenHandler = new JwtSecurityTokenHandler(); //token olusturur
             var key = Encoding.ASCII.GetBytes(_configuration.GetSection("AppSettings:Token").Value);

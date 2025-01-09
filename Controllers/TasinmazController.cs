@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using TasinmazProject.Business.Abstract;
 using TasinmazProject.Business.Concrete;
@@ -43,43 +45,85 @@ namespace TasinmazProject.Controllers
             var tasinmaz = await _tasinmazService.GetAllTasinmazAsync();
             return Ok(tasinmaz);
         }
-
-
-        // POST: api/Tasinmaz
-        [HttpPost]
+  
+        [Authorize]
+        [HttpPost("add")]
         public async Task<IActionResult> CreateTasinmaz([FromBody] Tasinmaz tasinmaz)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState); // Model hatalarını dön
+            try
+            {
+                Console.WriteLine($"Auth Header: {Request.Headers["Authorization"]}");
 
-            if (tasinmaz == null)
-                return BadRequest("Taşınmaz bilgileri boş olamaz.");
+                foreach (var claim in User.Claims)
+                {
+                    Console.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}");
+                }
 
-            var result = await _tasinmazService.AddTasinmazAsync(tasinmaz);
-            if (result == null)
-                return BadRequest("Taşınmaz eklenirken bir hata oluştu.");
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                Console.WriteLine($"User ID Claim: {userIdClaim ?? "null"}");
 
-            return CreatedAtAction(nameof(GetTasinmazByMahalleId), new { mahalleId = tasinmaz.MahalleId }, result);
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    Console.WriteLine("Unauthorized: User ID claim bulunamadı");
+                    return Unauthorized("Kullanıcı oturum açmamış.");
+                }
 
+                if (int.TryParse(userIdClaim, out int userId))
+                {
+                    tasinmaz.userId = userId;
+                }
+                else
+                {
+                    Console.WriteLine($"Geçersiz user ID formatı: {userIdClaim}");
+                    return BadRequest("Geçersiz kullanıcı ID'si.");
+                }
 
+                var result = await _tasinmazService.AddTasinmazAsync(tasinmaz);
+                if (result == null)
+                {
+                    Console.WriteLine("Taşınmaz ekleme başarısız");
+                    return BadRequest("Taşınmaz eklenirken bir hata oluştu.");
+                }
+
+                return CreatedAtAction(nameof(GetTasinmazById), new { id = result.Id }, result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Hata oluştu: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
 
-        //PUT: api/Tasinmaz/5
+        //PUT: api/Tasinmaz/id
+        [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateTasinmaz(int id, [FromBody] Tasinmaz tasinmaz)
         {
-           
-            if (id != tasinmaz.Id)
-                return BadRequest("ID'ler eşleşmiyor.");
+            try
+            {
+                if (id != tasinmaz.Id)
+                {
+                    return BadRequest("ID uyuşmazlığı");
+                }
 
-            var result = await _tasinmazService.UpdateTasinmazAsync(tasinmaz);
-            if (!result)
-                return NotFound($"ID: {id} olan taşınmaz bulunamadı.");
+                var updatedTasinmaz = await _tasinmazService.UpdateTasinmazAsync(tasinmaz);
 
-            return NoContent(); // 204
+                if (updatedTasinmaz == null)
+                {
+                    return NotFound($"ID: {id} olan taşınmaz bulunamadı.");
+                }
+
+                return Ok(updatedTasinmaz);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Update error: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                return StatusCode(500, $"Güncelleme sırasında hata oluştu: {ex.Message}");
+            }
         }
-
 
         //DELETE
         [HttpDelete("{id}")]
@@ -119,11 +163,12 @@ namespace TasinmazProject.Controllers
                 return BadRequest("Bazı kayıtlar silinirken bir hata oluştu.");
             }
 
-            return Ok("Seçili taşınmazlar başarıyla silindi.");
+            return Ok(new { message = "Seçili taşınmazlar başarıyla silindi." });
         }
 
         //update icin id ile get
-        [HttpGet("{id}")]
+        [Authorize]
+        [HttpGet("by-id/{id}")]
         public async Task<IActionResult> GetTasinmazById(int id)
         {
             var tasinmaz = await _tasinmazService.GetTasinmazByIdAsync(id);
@@ -133,7 +178,23 @@ namespace TasinmazProject.Controllers
             }
             return Ok(tasinmaz);
         }
-      
+
+        // userId ye gore tasinmaz for users tasinmaz
+
+        [HttpGet("by-user/{userId}")]
+        public async Task<IActionResult> GetTasinmazByUserId(int userId)
+        {
+            var tasinmazlar = await _tasinmazService.GetTasinmazByUserIdAsync(userId);
+
+            if (tasinmazlar == null || tasinmazlar.Count == 0)
+            {
+                return NotFound("Bu id ye ait tasinmaz bulunamadı.");
+            }
+
+            return Ok(tasinmazlar);
+        }
+
+
 
     }
 }
