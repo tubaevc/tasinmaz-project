@@ -1,7 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using TasinmazProject.Business.Abstract;
 using TasinmazProject.DataAccess;
@@ -13,10 +16,12 @@ namespace TasinmazProject.Business.Concrete
     {
 
         private readonly ApplicationDbContext _context;
+        private readonly ILogService _logService;
 
-        public TasinmazService(ApplicationDbContext context)
+        public TasinmazService(ApplicationDbContext context, ILogService logService)
         {
             _context = context;
+            _logService = logService;
         }
         public async Task<Tasinmaz> GetTasinmazByIdAsync(int id)
         {
@@ -42,6 +47,15 @@ namespace TasinmazProject.Business.Concrete
                 await _context.Tasinmazlar.AddAsync(tasinmaz);
                 await _context.SaveChangesAsync();
 
+                // Log kaydı
+                await _logService.LogAsync(
+                    true,
+                    "Ekleme",
+                    $"Taşınmaz (ID: {tasinmaz.Id}) başarıyla eklendi.",
+                    "127.0.0.1", 
+                    tasinmaz.userId
+                );
+
                 var addedTasinmaz = await _context.Tasinmazlar
                     .Include(t => t.Mahalle)
                         .ThenInclude(m => m.Ilce)
@@ -52,36 +66,36 @@ namespace TasinmazProject.Business.Concrete
             }
             catch (Exception ex)
             {
-                throw new Exception($"Veritabanına eklerken hata oluştu: {ex.Message}. Inner Exception: {ex.InnerException?.Message}");
+                await _logService.LogAsync(
+                    false,
+                    "Ekleme",
+                    $"Hata oluştu: {ex.Message}",
+                    "127.0.0.1",
+                    tasinmaz.userId
+                );
+                throw;
             }
         }
 
-
-        public async Task<Tasinmaz> UpdateTasinmazAsync(Tasinmaz tasinmaz)
+        public async Task<Tasinmaz> UpdateTasinmazAsync(Tasinmaz tasinmaz,int userId)
         {
             try
             {
+
                 var existingTasinmaz = await _context.Tasinmazlar.FindAsync(tasinmaz.Id);
 
                 if (existingTasinmaz == null)
-                    return null;
-
-                await _context.Entry(existingTasinmaz)
-                    .Reference(t => t.Mahalle)
-                    .LoadAsync();
-
-                if (existingTasinmaz.Mahalle != null)
                 {
-                    await _context.Entry(existingTasinmaz.Mahalle)
-                        .Reference(m => m.Ilce)
-                        .LoadAsync();
+             
 
-                    if (existingTasinmaz.Mahalle.Ilce != null)
-                    {
-                        await _context.Entry(existingTasinmaz.Mahalle.Ilce)
-                            .Reference(i => i.Il)
-                            .LoadAsync();
-                    }
+                    await _logService.LogAsync(
+                        false,
+                        "Güncelleme",
+                        $"Taşınmaz (ID: {tasinmaz.Id}) bulunamadı.",
+                        "127.0.0.1",
+                        userId
+                    );
+                    return null;
                 }
 
                 existingTasinmaz.Ada = tasinmaz.Ada;
@@ -91,6 +105,14 @@ namespace TasinmazProject.Business.Concrete
                 existingTasinmaz.MahalleId = tasinmaz.MahalleId;
 
                 await _context.SaveChangesAsync();
+
+                await _logService.LogAsync(
+                    true,
+                    "Güncelleme",
+                    $"Taşınmaz (ID: {tasinmaz.Id}) başarıyla güncellendi.",
+                    "127.0.0.1",
+                    userId
+                );
 
                 var updatedTasinmaz = await _context.Tasinmazlar
                     .Include(t => t.Mahalle)
@@ -102,22 +124,18 @@ namespace TasinmazProject.Business.Concrete
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"UpdateTasinmazAsync error: {ex.Message}");
-                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                await _logService.LogAsync(
+                    false,
+                    "Güncelleme",
+                    $"Hata oluştu: {ex.Message}",
+                    "127.0.0.1",
+                    tasinmaz.userId
+                );
                 throw;
             }
         }
-        public async Task<bool> DeleteTasinmazAsync(int id)
-        {
-            var tasinmaz = await _context.Tasinmazlar.FindAsync(id);
-            if (tasinmaz == null)
-                return false;
 
-            _context.Tasinmazlar.Remove(tasinmaz);
-            await _context.SaveChangesAsync();
-
-            return true;
-        }
+     
         public async Task<List<Tasinmaz>> GetAllTasinmazAsync()
         {
             return await _context.Tasinmazlar.Include(tasinmaz => tasinmaz.Mahalle).ThenInclude(mahalle => mahalle.Ilce)
@@ -125,7 +143,9 @@ namespace TasinmazProject.Business.Concrete
                 .ToListAsync();
         }
 
-        public async Task<bool> DeleteMultipleTasinmazAsync(List<int> ids)
+
+
+        public async Task<bool> DeleteTasinmazAsync(List<int> ids, int userId)
         {
             var tasinmazlar = await _context.Tasinmazlar
                 .Where(t => ids.Contains(t.Id))
@@ -133,14 +153,31 @@ namespace TasinmazProject.Business.Concrete
 
             if (tasinmazlar.Count == 0)
             {
-                return false; 
+                await _logService.LogAsync(
+                    false,
+                    "Silme",
+                    $"Hiçbir taşınmaz silinemedi. IDs: {string.Join(", ", ids)}",
+                    "127.0.0.1",
+                    userId
+                );
+                return false;
             }
 
             _context.Tasinmazlar.RemoveRange(tasinmazlar);
             await _context.SaveChangesAsync();
 
+            await _logService.LogAsync(
+                true,
+                "Silme",
+                $"Seçili taşınmazlar ({string.Join(", ", ids)}) başarıyla silindi.",
+                "127.0.0.1",
+                userId
+            );
+
             return true;
         }
+
+
 
         public async Task<List<Tasinmaz>> GetTasinmazByUserIdAsync(int userId)
         {

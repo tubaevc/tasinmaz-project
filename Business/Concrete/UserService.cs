@@ -23,7 +23,9 @@ namespace TasinmazProject.Business.Concrete
 
         public async Task<User> GetUserByIdAsync(int id)
         {
-            return await _context.Users.FirstOrDefaultAsync(i => i.userId == id);
+            return await _context.Users
+                //.Include(i => i.userEmail)
+                .FirstOrDefaultAsync(i => i.userId == id);
         }
 
         public async Task<List<User>> GetAllUsersAsync()
@@ -82,19 +84,27 @@ namespace TasinmazProject.Business.Concrete
             return user;
         }
 
-
         public async Task<bool> DeleteUserAsync(int id)
         {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null)
+            try
             {
-                return false; 
-            }
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    return false;
+                }
 
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-            return true;
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Hata: {ex.Message}");
+                throw; 
+            }
         }
+
 
 
 

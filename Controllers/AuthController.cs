@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using TasinmazProject.Business.Abstract;
+using TasinmazProject.Business.Concrete;
 using TasinmazProject.Data;
 using TasinmazProject.DTO;
 using TasinmazProject.Entities.Concrete;
@@ -22,66 +25,137 @@ namespace TasinmazProject.Controllers
     {
 
         private IAuthRepository _authRepository;
+        private  ILogService _logService;
 
         private IConfiguration _configuration;
-        public AuthController(IAuthRepository authRepository, IConfiguration configuration)
+        public AuthController(IAuthRepository authRepository,
+                        IConfiguration configuration,
+                        ILogService logService)  
         {
             _authRepository = authRepository;
             _configuration = configuration;
+            _logService = logService;  
         }
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserForRegister userForRegister)
         {
-            if (await _authRepository.UserExists(userForRegister.UserEmail))
+            try
             {
-                ModelState.AddModelError("UserEmail", "UserEmail already exists");
+                var userToCreate = new User
+                {
+                    userEmail = userForRegister.UserEmail,
+                    role = "admin"
+                };
 
+                var createdUser = await _authRepository.Register(userToCreate, userForRegister.Password);
+                return StatusCode(201, new { message = "Kullanıcı başarıyla oluşturuldu." });
             }
-            if (!ModelState.IsValid)
+            catch (UserAlreadyExistsException ex)
             {
-                return BadRequest(ModelState);
+                return BadRequest(new { message = ex.Message });
             }
-            var userToCreate = new User
+            catch (Exception ex)
             {
-                userEmail = userForRegister.UserEmail,
-                role = "admin"
-            };
-            var createdUser = await _authRepository.Register(userToCreate, userForRegister.Password);
-            return StatusCode(201);
+                Console.WriteLine($"Hata: {ex.Message}");
+                return StatusCode(500, "Bir hata oluştu.");
+            }
         }
-
+        public class UserAlreadyExistsException : Exception
+        {
+            public UserAlreadyExistsException(string message) : base(message) { }
+        }
 
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] UserForLogin userForLogin)
         {
-            var user = await _authRepository.Login(userForLogin.UserEmail, userForLogin.Password);
-
-            if (user == null)
+            try
             {
-                return Unauthorized("Kullanıcı bulunamadı!");
-            }
+                var user = await _authRepository.Login(userForLogin.UserEmail, userForLogin.Password);
 
-            user.role = user.role ?? "Admin"; 
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = Encoding.ASCII.GetBytes(_configuration.GetSection("AppSettings:Token").Value);
 
-            var tokenHandler = new JwtSecurityTokenHandler(); //token olusturur
-            var key = Encoding.ASCII.GetBytes(_configuration.GetSection("AppSettings:Token").Value);
-
-            var tokenDescriptor = new SecurityTokenDescriptor() //bilgiler belirtilir
-            {
-                Subject = new ClaimsIdentity(new Claim[]
+                var tokenDescriptor = new SecurityTokenDescriptor
                 {
-            new Claim(ClaimTypes.NameIdentifier, user.userId.ToString()),
-            new Claim(ClaimTypes.Email, user.userEmail),
-            new Claim(ClaimTypes.Role, user.role) // role her zaman dolu olacaktır
-                }),
-                Expires = DateTime.Now.AddDays(1),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha512Signature)
-            };
+                    Subject = new ClaimsIdentity(new Claim[]
+                    {
+                new Claim(ClaimTypes.NameIdentifier, user.userId.ToString()),
+                new Claim(ClaimTypes.Email, user.userEmail),
+                new Claim(ClaimTypes.Role, user.role)
+                    }),
+                    Expires = DateTime.Now.AddDays(1),
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha512Signature)
+                };
 
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            var tokenString = tokenHandler.WriteToken(token);
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                var tokenString = tokenHandler.WriteToken(token);
 
-            return Ok(new { token = tokenString });
+                await _logService.LogAsync(
+                    durum: true,
+                    islemTipi: "Login",
+                    aciklama: $"Başarılı giriş. Kullanıcı: {user.userEmail}",
+                    userIp: HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    userId: user.userId
+                );
+
+                return Ok(new { token = tokenString });
+            }
+            catch (UserNotFoundException ex)
+            {
+                await _logService.LogAsync(
+                    durum: false,
+                    islemTipi: "Login",
+                    aciklama: $"Başarısız giriş denemesi. {ex.Message}. Email: {userForLogin.UserEmail}",
+                    userIp: HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    userId: null
+                );
+
+                return NotFound(ex.Message); // 404 Not Found
+            }
+            catch (InvalidPasswordException ex)
+            {
+                await _logService.LogAsync(
+                    durum: false,
+                    islemTipi: "Login",
+                    aciklama: $"Başarısız giriş denemesi. {ex.Message}. Email: {userForLogin.UserEmail}",
+                    userIp: HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    userId: null
+                );
+
+                return Unauthorized(ex.Message); // 401 Unauthorized
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Hata: {ex.Message}");
+                return StatusCode(500, "Bir hata oluştu.");
+            }
+        }
+        public class UserNotFoundException : Exception
+        {
+            public UserNotFoundException(string message) : base(message) { }
+        }
+
+        public class InvalidPasswordException : Exception
+        {
+            public InvalidPasswordException(string message) : base(message) { }
+        }
+
+        private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+        {
+            using (var hmac = new System.Security.Cryptography.HMACSHA512(passwordSalt))
+            {
+                var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+                for (int i = 0; i < computedHash.Length; i++)
+                {
+                    if (computedHash[i] != passwordHash[i])
+                    {
+                        return false;
+                    }
+
+                }
+                return true;
+
+            }
         }
     }
 }

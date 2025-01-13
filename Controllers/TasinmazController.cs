@@ -102,17 +102,20 @@ namespace TasinmazProject.Controllers
         public async Task<IActionResult> UpdateTasinmaz(int id, [FromBody] Tasinmaz tasinmaz)
         {
             try
-            {
-                if (id != tasinmaz.Id)
+            {   
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                var userId = userIdClaim != null ? int.Parse(userIdClaim.Value) : 0;
+
+                if (userId == 0)
                 {
-                    return BadRequest("ID uyuşmazlığı");
+                    return Unauthorized("Kullanıcı kimliği alınamadı.");
                 }
 
-                var updatedTasinmaz = await _tasinmazService.UpdateTasinmazAsync(tasinmaz);
+                var updatedTasinmaz = await _tasinmazService.UpdateTasinmazAsync(tasinmaz, userId);
 
                 if (updatedTasinmaz == null)
                 {
-                    return NotFound($"ID: {id} olan taşınmaz bulunamadı.");
+                    return NotFound("Taşınmaz bulunamadı.");
                 }
 
                 return Ok(updatedTasinmaz);
@@ -124,39 +127,24 @@ namespace TasinmazProject.Controllers
                 return StatusCode(500, $"Güncelleme sırasında hata oluştu: {ex.Message}");
             }
         }
-
-        //DELETE
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTasinmaz(int id)
+        [Authorize]
+        [HttpDelete("delete")]
+        public async Task<IActionResult> DeleteTasinmaz([FromBody] List<int> ids)
         {
-            // ID check
-            var tasinmaz = await _tasinmazService.GetTasinmazByMahalleIdAsync(id);
-            if (tasinmaz == null)
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            var userId = userIdClaim != null ? int.Parse(userIdClaim.Value) : 0;
+
+            if (userId == 0)
             {
-                // 404
-                return NotFound($"ID: {id} olan taşınmaz bulunamadı.");
+                return Unauthorized("Kullanıcı kimliği alınamadı.");
             }
 
-            // delete
-            var result = await _tasinmazService.DeleteTasinmazAsync(id);
-            if (!result)
-            {
-                return BadRequest("Taşınmaz silinirken bir hata oluştu.");
-            }
-
-            return NoContent();
-        }
-
-        //multi delete için list alsın
-        [HttpPost("multi-delete")]
-        public async Task<IActionResult> DeleteMultipleTasinmaz([FromBody] List<int> ids)
-        {
             if (ids == null || ids.Count == 0)
             {
                 return BadRequest("Silinecek ID listesi boş.");
             }
 
-            var result = await _tasinmazService.DeleteMultipleTasinmazAsync(ids);
+            var result = await _tasinmazService.DeleteTasinmazAsync(ids, userId);
 
             if (!result)
             {
@@ -165,6 +153,9 @@ namespace TasinmazProject.Controllers
 
             return Ok(new { message = "Seçili taşınmazlar başarıyla silindi." });
         }
+
+
+
 
         //update icin id ile get
         [Authorize]

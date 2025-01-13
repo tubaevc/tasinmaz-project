@@ -3,6 +3,7 @@ using System;
 using System.Threading.Tasks;
 using TasinmazProject.DataAccess;
 using TasinmazProject.Entities.Concrete;
+using static TasinmazProject.Controllers.AuthController;
 
 namespace TasinmazProject.Data
 {
@@ -13,23 +14,30 @@ namespace TasinmazProject.Data
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
+    
         public async Task<User> Login(string userEmail, string password)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(x=>x.userEmail==userEmail); 
+            var user = await _context.Users.FirstOrDefaultAsync(x => x.userEmail == userEmail);
+
             if (user == null)
             {
-                return null;
+                throw new UserNotFoundException("Kullanıcı bulunamadı!");
             }
+
             if (string.IsNullOrEmpty(user.role))
             {
                 throw new Exception("Role değeri null veya boş!");
             }
-            if (!VerifyPasswordHash(password,user.PasswordHash,user.PasswordSalt))
+
+            if (!VerifyPasswordHash(password, user.PasswordHash, user.PasswordSalt))
             {
-                return null;
+                throw new InvalidPasswordException("Şifre yanlış!");
             }
+
             return user;
         }
+
+
 
         private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
         {
@@ -51,14 +59,22 @@ namespace TasinmazProject.Data
 
         public async Task<User> Register(User user, string password)
         {
+            if (await UserExists(user.userEmail))
+            {
+                throw new UserAlreadyExistsException("Bu e-posta adresi zaten kayıtlı!");
+            }
+
             byte[] passwordHash, passwordSalt;
             CreatePasswordHash(password, out passwordHash, out passwordSalt);
             user.PasswordHash = passwordHash;
             user.PasswordSalt = passwordSalt;
+
             await _context.Users.AddAsync(user);
             await _context.SaveChangesAsync();
             return user;
         }
+
+
 
         private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
         {
@@ -71,12 +87,15 @@ namespace TasinmazProject.Data
 
         public async Task<bool> UserExists(string userEmail)
         {
-            if (await _context.Users.AnyAsync(x => x.userEmail == userEmail))
-            {
-
-                return true;
-                }
-            return false;
+            Console.WriteLine($"Checking if user exists: {userEmail}");
+            var exists = await _context.Users
+                .AnyAsync(x => x.userEmail.ToLower() == userEmail.ToLower());
+            Console.WriteLine($"User exists result: {exists}");
+            return exists;
         }
+
+
+
+
     }
 }

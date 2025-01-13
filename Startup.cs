@@ -34,37 +34,46 @@ namespace TasinmazProject
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            var key= Encoding.ASCII.GetBytes(Configuration.GetSection("AppSettings:Token").Value);
-            services.AddScoped<IIlService, IlService>(); 
-            services.AddScoped<IIlceService, IlceService>(); 
-            services.AddScoped<IMahalleService,MahalleService>();
+            var key = Encoding.ASCII.GetBytes(Configuration.GetSection("AppSettings:Token").Value);
+     
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+               .AddJwtBearer(options =>
+               {
+                   options.TokenValidationParameters = new TokenValidationParameters
+                   {
+                       ValidateIssuerSigningKey = true,
+                       IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["AppSettings:Token"])),
+                       ValidateIssuer = false,
+                       ValidateAudience = false
+                   };
+               });
+
+
+            services.AddAuthorization();
+            services.AddScoped<IIlService, IlService>();
+            services.AddScoped<IIlceService, IlceService>();
+            services.AddScoped<IMahalleService, MahalleService>();
             services.AddScoped<ITasinmazService, TasinmazService>();
             services.AddScoped<IAuthRepository, AuthRepository>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<ILogService, LogService>();
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseNpgsql("Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=12510;"
 ));
-
-
+      
             services.AddCors(options =>
             {
-                options.AddPolicy("AllowAngularApp",
-                    builder => builder.WithOrigins("http://localhost:4200") // Angular 
-                                      .AllowAnyHeader()
-                                      .AllowAnyMethod());
+                options.AddPolicy("AllowAll", builder =>
+                {
+                    builder.AllowAnyOrigin()
+                           .AllowAnyMethod()
+                           .AllowAnyHeader();
+                });
             });
+
             services.AddControllers();
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-     .AddJwtBearer(options =>
-     {
-         options.TokenValidationParameters = new TokenValidationParameters
-         {
-             ValidateIssuerSigningKey = true,
-             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["AppSettings:Token"])),
-             ValidateIssuer = false,
-             ValidateAudience = false
-         };
-     });
+
+
 
             services.AddSwaggerGen(c =>
             {
@@ -100,9 +109,6 @@ namespace TasinmazProject
         }
     });
             });
-            services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(Configuration.GetConnectionString("DefaultConnection"))
-);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -118,7 +124,7 @@ namespace TasinmazProject
 
             app.UseRouting();
 
-            app.UseCors("AllowAngularApp");
+            app.UseCors("AllowAll");
 
             app.UseAuthentication();
             app.UseAuthorization();

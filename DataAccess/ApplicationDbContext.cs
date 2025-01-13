@@ -13,8 +13,8 @@ namespace TasinmazProject.DataAccess
         public DbSet<Ilce> Ilceler { get; set; }
         public DbSet<Mahalle> Mahalleler { get; set; }
         public DbSet<Tasinmaz> Tasinmazlar { get; set; }
-
         public DbSet<User> Users { get; set; }
+        public DbSet<Log> Logs { get; set; }
 
     }
 }
